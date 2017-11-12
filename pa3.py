@@ -32,7 +32,7 @@ maryCalls = {('+a','+m'): 0.7, ('-a','+m'): 0.01,
 def sampling():
     samples = []
 
-    for i in range(10000):
+    for i in range(10):
 
         b = random.uniform(0, 1)
         e = random.uniform(0, 1)
@@ -44,7 +44,6 @@ def sampling():
         # Samples for burglary
         for key, value in burglary.items():
             if key.__contains__('+b'):
-                # print(key, value)
                 if b < value:
                     B = '+b'
                 else:
@@ -54,7 +53,6 @@ def sampling():
         # Samples for earthquake
         for key, value in earthquake.items():
             if key.__contains__('+e'):
-                # print(key, value)
                 if e < value:
                     E = '+e'
                 else:
@@ -66,7 +64,6 @@ def sampling():
             if key.__contains__(B):
                 if key.__contains__(E):
                     if key.__contains__('+a'):
-                        # print(key, value)
                         if a < value:
                             A = '+a'
                         else:
@@ -77,7 +74,6 @@ def sampling():
         for key, value in johnCalls.items():
             if key.__contains__(A):
                 if key.__contains__('+j'):
-                    # print(key, value)
                     if j < value:
                         J = '+j'
                     else:
@@ -88,7 +84,6 @@ def sampling():
         for key, value in maryCalls.items():
             if key.__contains__(A):
                 if key.__contains__('+m'):
-                    # print(key, value)
                     if m < value:
                         M = '+m'
                     else:
@@ -169,7 +164,7 @@ def getTrueProbability(truthtable, qe):
 
 
 # Getting the probability of Samples for Prior Sampling
-def getSampleProbability(samples, qe):
+def getPriorProbability(samples, qe):
     priorSamples = []
     priorSamplesList = []
     for s in samples:
@@ -182,6 +177,23 @@ def getSampleProbability(samples, qe):
         priorSamplesList.append(probability)
 
     return priorSamplesList
+
+
+# Getting the probability of Samples for Rejection Sampling
+def getRejectionProbability(samples, query):
+    rejectionSamples = []
+    rejectionSamplesList = []
+
+    for s in samples:
+        if query in s:
+            rejectionSamples.append(s)
+
+
+    for b, e, a, j, m in rejectionSamples:
+        probability = burglary[b] * earthquake[e] * alarm[(b, e, a)] * johnCalls[(a, j)] * maryCalls[(a, m)]
+        rejectionSamplesList.append(probability)
+
+    return rejectionSamplesList
 
 
 # Getting the Likelihood Weights of Samples for Likelihood Weighting
@@ -228,36 +240,7 @@ def getLikelihoodWeights(samples, qe, flagB, flagE, flagA, flagJ, flagM):
 
         prob += probability
 
-    # print(lwSamplesList)
-
     return lwSamplesList, prob
-
-    # countB = 0
-    # countE = 0
-    # countA = 0
-    # countJ = 0
-    # countM = 0
-    # count = 0
-    #
-    # for i in range(len(lwSamples)):
-    #     if lwSamples[i][0] == '+b':
-    #         countB += 1
-    #     if lwSamples[i][1] == '+e':
-    #         countE += 1
-    #     if lwSamples[i][2] == '+a':
-    #         countA += 1
-    #     if lwSamples[i][3] == '+j':
-    #         countJ += 1
-    #     if lwSamples[i][4] == '+m':
-    #         countM += 1
-    #
-    # print(countB, countE, countA, countJ, countM)
-    #
-    # for i in range(len(lwSamplesList)):
-    #     if lwSamplesList[i] == 0.04995:
-    #         count += 1
-    #
-    # print('Count is: ', count)
 
 
 # Setting the Evidence variables for Likelihood Weighting
@@ -316,7 +299,7 @@ def enumeration(evidenceList, queryList):
 
 
 # Execution of Prior Sampling
-def priorSampling(samples, evidenceList, queryList, truthtable):
+def priorSampling(samples, evidenceList, queryList):
     priorSamplesProb = []
     priorProbTemp = []
     qe = deepcopy(evidenceList)
@@ -326,11 +309,11 @@ def priorSampling(samples, evidenceList, queryList, truthtable):
     for i in queryList:
 
         qe.append(i[0])
-        pos = getSampleProbability(samples, qe)
+        pos = getPriorProbability(samples, qe)
         qe.pop()
 
         qe.append(i[1])
-        neg = getSampleProbability(samples, qe)
+        neg = getPriorProbability(samples, qe)
         qe.pop()
 
         # priorProbTemp.append((len(pos), len(neg)))
@@ -343,6 +326,39 @@ def priorSampling(samples, evidenceList, queryList, truthtable):
         priorSamplesProb.append((posTemp, negTemp))
 
     print('Prior probability:', priorSamplesProb)
+
+
+# Execution of Rejection Sampling
+def rejectionSampling(samples, evidenceList, queryList):
+    rejectionSamples = []
+    rejectionSamplesProb = []
+
+    print('\n-------------------------------------- Rejection Sampling --------------------------------------\n')
+
+    # Reject the samples that don't agree with the evidence
+    for s in samples:
+        temp = list(s)
+        if (all(x in temp for x in evidenceList)):
+            rejectionSamples.append(s)
+
+
+    for i in queryList:
+
+        query = i[0]
+        pos = getRejectionProbability(rejectionSamples, query)
+
+        query = i[1]
+        neg = getRejectionProbability(rejectionSamples, query)
+
+        # print(pos)
+        # print(neg)
+
+        posTemp = len(pos) / (len(pos) + len(neg))
+        negTemp = len(neg) / (len(pos) + len(neg))
+
+        rejectionSamplesProb.append((posTemp, negTemp))
+
+    print('Rejection Sampling probability:', rejectionSamplesProb)
 
 
 # Execution of Likelihood Weighting
@@ -381,7 +397,7 @@ def readInput():
     queryList = []
 
     # qe = sys.argv[1]
-    qe = '[< A,f >][B,J]'
+    qe = '[< J,t >< E,f >][B,M]'
     qe = qe.replace('[','').replace('<','').replace('>','').replace(']','').split(' ')
     for i in qe:
         if i != '':
@@ -452,5 +468,6 @@ if __name__ == '__main__':
     truthtable = getTruthtable()
     samples = sampling()
     enumeration(evidenceList, queryList)
-    priorSampling(samples, evidenceList, queryList, truthtable)
+    priorSampling(samples, evidenceList, queryList)
+    rejectionSampling(samples, evidenceList, queryList)
     likelihoodWeighting(samples, evidenceList, queryList)
