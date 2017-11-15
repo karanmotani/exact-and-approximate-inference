@@ -29,10 +29,10 @@ maryCalls = {('+a','+m'): 0.7, ('-a','+m'): 0.01,
 
 
 # Generating samples based on random number generation
-def sampling():
+def sampling(numberOfSamples):
     samples = []
 
-    for i in range(10):
+    for i in range(numberOfSamples):
 
         b = random.uniform(0, 1)
         e = random.uniform(0, 1)
@@ -109,8 +109,8 @@ def sampling():
         if samples[i][4] == '+m':
             countM += 1
 
-    print('B', 'E', 'A', 'J', 'M')
-    print(countB, countE, countA, countJ, countM)
+    # print('B', 'E', 'A', 'J', 'M')
+    # print(countB, countE, countA, countJ, countM)
 
     return samples
 
@@ -200,11 +200,11 @@ def getRejectionProbability(samples, query):
 def getLikelihoodWeights(samples, qe, flagB, flagE, flagA, flagJ, flagM):
     lwSamples = []
     lwSamplesList = []
-    prob = 1
+    prob = 0
 
     for s in samples:
         temp = list(s)
-        if (all(x in temp for x in qe)):
+        if all(x in temp for x in qe):
             lwSamples.append(s)
 
     for b, e, a, j, m in lwSamples:
@@ -236,8 +236,7 @@ def getLikelihoodWeights(samples, qe, flagB, flagE, flagA, flagJ, flagM):
 
         probability = tempB * tempE * tempA * tempJ * tempM
 
-        lwSamplesList.append(probability)
-
+        lwSamplesList.append(((b, e, a, j, m), probability))
         prob += probability
 
     return lwSamplesList, prob
@@ -292,7 +291,7 @@ def enumeration(evidenceList, queryList):
         p = pos / (pos + neg)
         n = neg / (pos + neg)
 
-        exactProbFinal.append((p, n))
+        exactProbFinal.append(p)
 
     # print('Exact probability: α', exactProbTemp)
     print('Exact probability:', exactProbFinal)
@@ -320,10 +319,14 @@ def priorSampling(samples, evidenceList, queryList):
         # print(i[0], len(pos))
         # print(i[1], len(neg))
 
-        posTemp = len(pos)/(len(pos)+len(neg))
-        negTemp = len(neg)/(len(pos)+len(neg))
+        if (len(pos)+len(neg)) == 0:
+            posTemp = 0
+            negTemp = 0
+        else:
+            posTemp = len(pos)/(len(pos)+len(neg))
+            negTemp = len(neg)/(len(pos)+len(neg))
 
-        priorSamplesProb.append((posTemp, negTemp))
+        priorSamplesProb.append(posTemp)
 
     print('Prior probability:', priorSamplesProb)
 
@@ -353,10 +356,14 @@ def rejectionSampling(samples, evidenceList, queryList):
         # print(pos)
         # print(neg)
 
-        posTemp = len(pos) / (len(pos) + len(neg))
-        negTemp = len(neg) / (len(pos) + len(neg))
+        if (len(pos)+len(neg)) == 0:
+            posTemp = 0
+            negTemp = 0
+        else:
+            posTemp = len(pos) / (len(pos)+len(neg))
+            negTemp = len(neg) / (len(pos)+len(neg))
 
-        rejectionSamplesProb.append((posTemp, negTemp))
+        rejectionSamplesProb.append(posTemp)
 
     print('Rejection Sampling probability:', rejectionSamplesProb)
 
@@ -365,7 +372,6 @@ def rejectionSampling(samples, evidenceList, queryList):
 def likelihoodWeighting(samples, evidenceList, queryList):
     lw = []
     qe = deepcopy(evidenceList)
-
     print('\n------------------------------------- Likelihood Weighting -------------------------------------\n')
 
     # Fixing the evidence
@@ -384,7 +390,8 @@ def likelihoodWeighting(samples, evidenceList, queryList):
         neg, negValue = getLikelihoodWeights(samples, qe, flagB, flagE, flagA, flagJ, flagM)
         qe.pop()
 
-        lw.append((posValue/evidenceValue, negValue/evidenceValue))
+        lw.append(posValue/(len(pos) if len(pos)>0 else 1))
+
 
     print('Likelihood Weighting:', lw)
 
@@ -396,8 +403,11 @@ def readInput():
     evidenceList = []
     queryList = []
 
-    # qe = sys.argv[1]
-    qe = '[< J,t >< E,f >][B,M]'
+    # numberOfSamples = sys.argv[1]
+    qe = sys.argv[1]
+
+    numberOfSamples = 10000
+    # qe = '[< A,f >][B,J]'
     qe = qe.replace('[','').replace('<','').replace('>','').replace(']','').split(' ')
     for i in qe:
         if i != '':
@@ -458,16 +468,18 @@ def readInput():
         if 'M' == i:
             queryList.append(('+m', '-m'))
 
-    return evidenceList, queryList
+    return evidenceList, queryList, numberOfSamples
 
 
 # Main function
 if __name__ == '__main__':
 
-    evidenceList, queryList = readInput()
+    evidenceList, queryList, numberOfSamples = readInput()
     truthtable = getTruthtable()
-    samples = sampling()
+    priorSamples = sampling(int(numberOfSamples))
+    rejectionSamples = sampling(int(numberOfSamples))
+    lwSamples = sampling(int(numberOfSamples))
     enumeration(evidenceList, queryList)
-    priorSampling(samples, evidenceList, queryList)
-    rejectionSampling(samples, evidenceList, queryList)
-    likelihoodWeighting(samples, evidenceList, queryList)
+    priorSampling(priorSamples, evidenceList, queryList)
+    rejectionSampling(rejectionSamples, evidenceList, queryList)
+    likelihoodWeighting(lwSamples, evidenceList, queryList)
