@@ -300,7 +300,6 @@ def enumeration(evidenceList, queryList):
 # Execution of Prior Sampling
 def priorSampling(samples, evidenceList, queryList):
     priorSamplesProb = []
-    priorProbTemp = []
     qe = deepcopy(evidenceList)
 
     print('\n---------------------------------------- Prior Sampling ----------------------------------------\n')
@@ -314,10 +313,6 @@ def priorSampling(samples, evidenceList, queryList):
         qe.append(i[1])
         neg = getPriorProbability(samples, qe)
         qe.pop()
-
-        # priorProbTemp.append((len(pos), len(neg)))
-        # print(i[0], len(pos))
-        # print(i[1], len(neg))
 
         if (len(pos)+len(neg)) == 0:
             posTemp = 0
@@ -353,9 +348,6 @@ def rejectionSampling(samples, evidenceList, queryList):
         query = i[1]
         neg = getRejectionProbability(rejectionSamples, query)
 
-        # print(pos)
-        # print(neg)
-
         if (len(pos)+len(neg)) == 0:
             posTemp = 0
             negTemp = 0
@@ -381,16 +373,16 @@ def likelihoodWeighting(samples, evidenceList, queryList):
     # Fixing the evidence and the query
     for i in queryList:
         qe.append(i[0])
-        flagB, flagE, flagA, flagJ, flagM = getFlags(qe)
+        flagB, flagE, flagA, flagJ, flagM = getFlags(evidenceList)
         pos, posValue = getLikelihoodWeights(samples, qe, flagB, flagE, flagA, flagJ, flagM)
         qe.pop()
 
         qe.append(i[1])
-        flagB, flagE, flagA, flagJ, flagM = getFlags(qe)
+        flagB, flagE, flagA, flagJ, flagM = getFlags(evidenceList)
         neg, negValue = getLikelihoodWeights(samples, qe, flagB, flagE, flagA, flagJ, flagM)
         qe.pop()
 
-        lw.append(posValue/(len(pos) if len(pos)>0 else 1))
+        lw.append(posValue/evidenceValue)
 
 
     print('Likelihood Weighting:', lw)
@@ -403,11 +395,12 @@ def readInput():
     evidenceList = []
     queryList = []
 
-    # numberOfSamples = sys.argv[1]
-    qe = sys.argv[1]
+    numberOfSamples = sys.argv[1]
+    qe = sys.argv[2]
 
-    numberOfSamples = 10000
+    # numberOfSamples = 10000
     # qe = '[< A,f >][B,J]'
+
     qe = qe.replace('[','').replace('<','').replace('>','').replace(']','').split(' ')
     for i in qe:
         if i != '':
